@@ -1,6 +1,6 @@
 import { exec } from "child_process";
 import { PutObjectCommand, S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
-import { createReadStream } from "fs";
+import { createReadStream, unlink } from "fs";
 
 import { env } from "./env";
 
@@ -51,15 +51,28 @@ const dumpToFile = async (path: string) => {
   console.log("DB dumped to file...");
 }
 
+const deleteFile = async (path: string) => {
+  console.log("Deleting file...");
+  await new Promise((resolve, reject) => {
+    unlink(path, (err) => {
+      reject({ error: JSON.stringify(err) });
+      return;
+    });
+    resolve(undefined);
+  })
+}
+
 export const backup = async () => {
   console.log("Initiating DB backup...")
 
-  const timestamp = new Date().toISOString()
+  let date = new Date().toISOString()
+  const timestamp = date.replace(/[:.]+/g, '-')
   const filename = `backup-${timestamp}.tar.gz`
   const filepath = `/tmp/${filename}`
 
   await dumpToFile(filepath)
   await uploadToS3({name: filename, path: filepath})
+  await deleteFile(filepath)
 
   console.log("DB backup complete...")
 }
